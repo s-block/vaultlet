@@ -214,6 +214,10 @@ def test_atomic_bulk_crud_and_order(tmp_path: Path) -> None:
 def test_ttl_lazy_and_explicit_cleanup(tmp_path: Path) -> None:
     """Expired records are hidden immediately and removed by maintenance."""
 
+    async def sleep_past(expires_at: datetime) -> None:
+        remaining = (expires_at - datetime.now(UTC)).total_seconds()
+        await asyncio.sleep(max(remaining, 0) + 0.05)
+
     async def scenario() -> None:
         store = await vaultlet.Vaultlet.open(
             vaultlet.FileBackend(tmp_path / "ttl.vaultlet"),
@@ -226,22 +230,26 @@ def test_ttl_lazy_and_explicit_cleanup(tmp_path: Path) -> None:
         await tenant.set_json("expired-json", {"gone": True}, ttl=0)
         assert await tenant.get("expired-json") is None
 
-        expires = datetime.now(UTC) + timedelta(milliseconds=40)
-        await tenant.set("soon", b"value", expires_at=expires)
-        metadata = await tenant.metadata("soon")
+        metadata_expiry = datetime.now(UTC) + timedelta(minutes=1)
+        await tenant.set("metadata", b"value", expires_at=metadata_expiry)
+        metadata = await tenant.metadata("metadata")
         assert metadata is not None
         assert metadata.expires_at is not None
-        assert abs((metadata.expires_at - expires).total_seconds()) < 0.002
-        await asyncio.sleep(0.06)
+        assert abs((metadata.expires_at - metadata_expiry).total_seconds()) < 0.002
+        assert await tenant.delete("metadata")
+
+        expires = datetime.now(UTC) + timedelta(milliseconds=100)
+        await tenant.set("soon", b"value", expires_at=expires)
+        await sleep_past(expires)
         assert await store.purge_expired() == 1
         assert await tenant.get("soon") is None
 
-        batch_expiry = datetime.now(UTC) + timedelta(milliseconds=30)
+        batch_expiry = datetime.now(UTC) + timedelta(milliseconds=100)
         await tenant.set_many(
             {f"expired-{index}": b"value" for index in range(40)},
             expires_at=batch_expiry,
         )
-        await asyncio.sleep(0.05)
+        await sleep_past(batch_expiry)
         assert await store.purge_expired() == 40
         await store.aclose()
 
@@ -250,8 +258,11 @@ def test_ttl_lazy_and_explicit_cleanup(tmp_path: Path) -> None:
             key=vaultlet.MasterKey.generate(),
             cleanup_interval=0.01,
         )
-        await background.tenant("tenant").set("soon", b"value", ttl=0.01)
-        await asyncio.sleep(0.1)
+        background_expiry = datetime.now(UTC) + timedelta(milliseconds=100)
+        await background.tenant("tenant").set(
+            "soon", b"value", expires_at=background_expiry
+        )
+        await sleep_past(background_expiry)
         assert await background.purge_expired() == 0
         await background.aclose()
 
@@ -263,9 +274,10 @@ def test_ttl_lazy_and_explicit_cleanup(tmp_path: Path) -> None:
             cleanup_interval=0,
         )
         overwrite_tenant = overwrite.tenant("tenant")
-        await overwrite_tenant.set("key", b"old", ttl=0.01)
+        stale_expiry = datetime.now(UTC) + timedelta(milliseconds=100)
+        await overwrite_tenant.set("key", b"old", expires_at=stale_expiry)
         await overwrite_tenant.set("key", b"current")
-        await asyncio.sleep(0.03)
+        await sleep_past(stale_expiry)
         assert await overwrite.purge_expired() == 0
         assert await overwrite_tenant.get("key") == b"current"
         await overwrite.aclose()
