@@ -1,0 +1,5 @@
+config:
+  MD013:
+    code_blocks: false
+    line_length: 88
+    tables: false

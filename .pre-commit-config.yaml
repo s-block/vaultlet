@@ -1,0 +1,51 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-ast
+      - id: check-json
+      - id: check-toml
+      - id: check-yaml
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: debug-statements
+      - id: detect-private-key
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+  - repo: local
+    hooks:
+      - id: ruff-format
+        name: Ruff format check
+        entry: uv run ruff format --check .
+        language: system
+        pass_filenames: false
+        types_or: [python, pyi]
+      - id: ruff-check
+        name: Ruff lint
+        entry: uv run ruff check .
+        language: system
+        pass_filenames: false
+        types_or: [python, pyi]
+      - id: mypy
+        name: mypy
+        entry: uv run --group benchmark mypy src/vaultlet tests scripts benchmarks examples
+        language: system
+        pass_filenames: false
+        types_or: [python, pyi]
+      - id: cargo-fmt
+        name: Cargo format check
+        entry: cargo fmt --manifest-path rust/Cargo.toml --all -- --check
+        language: system
+        pass_filenames: false
+        files: ^(rust/|rust-toolchain\.toml)
+      - id: cargo-clippy
+        name: Cargo Clippy
+        entry: cargo clippy --manifest-path rust/Cargo.toml --all-targets --all-features -- -D warnings
+        language: system
+        pass_filenames: false
+        files: ^(rust/|rust-toolchain\.toml)

@@ -1,0 +1,110 @@
+[build-system]
+requires = ["maturin>=1.9,<2"]
+build-backend = "maturin"
+
+[project]
+name = "vaultlet"
+dynamic = ["version"]
+description = "Async encrypted multi-tenant storage with a Rust core"
+keywords = ["asyncio", "encryption", "key-value", "persistence", "security"]
+readme = "README.md"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+authors = [{ name = "Joshua Rowe" }]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = []
+
+[project.urls]
+Changelog = "https://github.com/s-block/vaultlet/blob/main/CHANGELOG.md"
+Documentation = "https://github.com/s-block/vaultlet/tree/main/docs"
+Issues = "https://github.com/s-block/vaultlet/issues"
+Security = "https://github.com/s-block/vaultlet/security/policy"
+Source = "https://github.com/s-block/vaultlet"
+
+[dependency-groups]
+dev = [
+    "coverage>=7.10",
+    "maturin>=1.9,<2",
+    "mypy>=1.18",
+    "pre-commit>=4.3",
+    "pytest>=8.4",
+    "ruff>=0.13",
+    "twine>=6,<7",
+]
+benchmark = [
+    "aiosqlite>=0.21",
+    "cryptography>=46",
+    "diskcache>=5.6",
+    "pyperf>=2.9",
+]
+
+[tool.maturin]
+bindings = "pyo3"
+features = ["pyo3/extension-module"]
+include = [
+    { path = "CHANGELOG.md", format = "sdist" },
+    { path = "SECURITY.md", format = "sdist" },
+    { path = "docs/**/*", format = "sdist" },
+    { path = "examples/**/*", format = "sdist" },
+    { path = "rust-toolchain.toml", format = "sdist" },
+]
+manifest-path = "rust/Cargo.toml"
+module-name = "vaultlet._vaultlet"
+python-source = "src"
+strip = true
+
+[tool.uv]
+package = true
+exclude-newer = "7 days"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "ASYNC",
+    "B",
+    "C4",
+    "E",
+    "F",
+    "I",
+    "N",
+    "RUF",
+    "S",
+    "SIM",
+    "TCH",
+    "UP",
+    "W",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/**/*.py" = ["S603"]
+"tests/**/*.py" = ["S101", "S105", "S106"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src/vaultlet", "tests", "scripts", "benchmarks", "examples"]
+strict = true
+warn_unused_ignores = true
+show_error_codes = true
+pretty = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-config",
+    "--strict-markers",
+    "--import-mode=importlib",
+]

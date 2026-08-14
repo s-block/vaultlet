@@ -1,0 +1,35 @@
+# Python environments and generated files
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+rust/target/
+target/
+src/vaultlet/_vaultlet.*.so
+src/vaultlet/_vaultlet.*.dylib
+src/vaultlet/_vaultlet*.pyd
+
+# Test, type-check, lint, and coverage output
+.coverage
+.coverage.*
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+coverage.xml
+htmlcov/
+
+# Local environment and editor configuration
+.env
+.env.*
+.idea/
+.vscode/
+.DS_Store
+
+# Local planning artifacts
+/prompts/
+
+# Benchmark output
+/benchmarks/results/
+/criterion/
