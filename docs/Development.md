@@ -75,6 +75,18 @@ wheels plus one source distribution. Musllinux wheels are installed and exercise
 Alpine; publishing uses only the protected PyPI OIDC environment. No PyPI token is
 stored in the repository.
 
+After the repository controls below are configured, release the version declared in
+`rust/Cargo.toml` with:
+
+```bash
+make release
+```
+
+The target runs the complete package gate, requires a clean `main` checkout that
+exactly matches `origin/main`, verifies GitHub CLI authentication and the protected
+`pypi` environment, then creates a versioned GitHub release pinned to that commit.
+Publishing and all platform builds run on GitHub; local PyPI credentials are not used.
+
 Before enabling public releases, configure repository controls that cannot be stored
 in this checkout:
 

@@ -1,4 +1,4 @@
-.PHONY: help install install-dev pre-commit-install format format-check lint type-check rust-format-check rust-lint rust-test test test-cov build check-dist check clean
+.PHONY: help install install-dev pre-commit-install format format-check lint type-check rust-format-check rust-lint rust-test test test-cov build check-dist check release clean
 .DEFAULT_GOAL := help
 
 help: ## Show available commands
@@ -51,6 +51,9 @@ check-dist: clean build ## Validate metadata, package contents, and isolated whe
 	uv run python scripts/check_dist.py
 
 check: rust-format-check rust-lint rust-test format-check lint type-check test check-dist ## Run all required package checks
+
+release: check ## Validate main and publish its version through a GitHub release
+	uv run python scripts/create_github_release.py
 
 clean: ## Remove generated local build and test artifacts
 	uv run python -c "import shutil; [shutil.rmtree(path, ignore_errors=True) for path in ('build', 'dist', '.mypy_cache', '.pytest_cache', '.ruff_cache', 'htmlcov')]"
