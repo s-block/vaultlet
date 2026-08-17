@@ -1,0 +1,46 @@
+name: Backend, benchmark, or integration proposal
+description: Propose a scoped enhancement before implementation
+title: "[Proposal]: "
+labels:
+  - enhancement
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Proposal type
+      options:
+        - Storage backend
+        - Benchmark or performance study
+        - Framework or agent integration
+        - API or capability
+        - Documentation or example
+    validations:
+      required: true
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use case
+      description: Describe the concrete application need and who benefits.
+    validations:
+      required: true
+  - type: textarea
+    id: contract
+    attributes:
+      label: Proposed contract
+      description: Explain the expected API, durability, security, compatibility, or measurement contract as applicable.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence and alternatives
+      description: Link prior art, measurements, or alternatives already considered.
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: I have reviewed the architecture, security, and contribution documentation relevant to this proposal.
+          required: true

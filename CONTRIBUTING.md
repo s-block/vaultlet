@@ -7,12 +7,25 @@ track work that is ready for discussion or contribution.
 Report suspected vulnerabilities privately by following the
 [security policy](SECURITY.md), not through a public issue or pull request.
 
+## Ways to contribute
+
+- [Report a bug](https://github.com/s-block/vaultlet/issues/new?template=bug_report.yml)
+  with a minimal reproduction and complete runtime/backend details.
+- [Propose a backend, benchmark, or integration](https://github.com/s-block/vaultlet/issues/new?template=proposal.yml)
+  before substantial implementation work so its contract and evidence can be
+  reviewed early.
+- Improve documentation, platform validation, tests, or an existing issue from the
+  [current roadmap](https://github.com/s-block/vaultlet/issues).
+- Report security issues only through
+  [GitHub Private Vulnerability Reporting](https://github.com/s-block/vaultlet/security/advisories/new).
+
 ## Choose an issue
 
 Start with the [open issues](https://github.com/s-block/vaultlet/issues). Comment on
 an issue before beginning substantial work so the approach and package contract can
 be aligned early. Open a focused proposal first when a change would add a backend,
-dependency, public API, storage-format revision, or compatibility commitment.
+integration, dependency, public API, storage-format revision, or compatibility
+commitment.
 
 Bug reports should include a minimal reproduction, the Vaultlet and Python versions,
 the operating system, the selected storage engine, and the expected and observed

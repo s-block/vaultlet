@@ -1,73 +1,84 @@
-# Vaultlet — encrypted state for multi-user Python applications
+# Vaultlet — async encrypted key-value storage for Python
 
 [![PyPI](https://img.shields.io/pypi/v/vaultlet)](https://pypi.org/project/vaultlet/)
 [![Python](https://img.shields.io/pypi/pyversions/vaultlet)](https://pypi.org/project/vaultlet/)
 [![CI](https://github.com/s-block/vaultlet/actions/workflows/ci.yml/badge.svg)](https://github.com/s-block/vaultlet/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/s-block/vaultlet/blob/main/LICENSE)
 
-Store per-user credentials, sessions, agent checkpoints, and cached state encrypted
-at rest — without deploying a dedicated secrets service. Vaultlet gives multi-user
-Python applications a small async persistence API, powered by Rust.
+Vaultlet is a high-performance, fully async, encrypted, multi-tenant key-value store
+for Python. Its Rust core, exposed through PyO3, keeps cryptography, expiry, and
+durable backend work off the event loop while the Python API stays small and typed.
+Use it for credentials, sessions, agent state, checkpoints, cached data, and other
+sensitive application state.
 
-- **Tenant isolation by construction:** every data operation uses a tenant-scoped
-  handle, so identical keys remain isolated between users.
-- **Async bytes and typed JSON:** store opaque buffers or a safe JSON-compatible
-  subset without pickle or arbitrary object deserialization.
-- **Expiry and atomic batches:** apply TTLs, enumerate live keys, rotate the master
-  key, and commit bulk reads or writes as one transaction.
-- **Three durable backends:** use SQLite for shared local state, redb for exclusive
-  embedded storage, or Redis for multi-host deployments.
-
-> **Used in the real world:**
-> [browser-use-mcp](https://github.com/s-block/browser-use-mcp) uses Vaultlet for
-> encrypted browser-profile metadata, tenant isolation, and shared SQLite
-> persistence.
-
-## Installation
+- **Strong tenant isolation:** every operation uses a tenant-scoped handle, and
+  tenant and key identifiers are blinded before they reach storage.
+- **Async bytes and typed JSON:** store opaque buffers or safe structured state
+  without pickle or arbitrary object deserialization.
+- **Application-state primitives:** apply TTLs, enumerate live keys, rotate the
+  master key, and commit batch reads or writes atomically.
+- **SQLite, redb, and Redis:** choose shared local storage, an exclusive embedded
+  store, or a durable multi-host backend without changing the tenant API.
 
 ```bash
 pip install vaultlet
 ```
 
+[PyPI](https://pypi.org/project/vaultlet/) · [Quick start](#quick-start) ·
+[Examples](#examples) ·
+[Security](https://github.com/s-block/vaultlet/blob/main/docs/Security.md) ·
+[Architecture](https://github.com/s-block/vaultlet/blob/main/docs/Architecture.md) ·
+[Benchmarks](https://github.com/s-block/vaultlet/blob/main/docs/Benchmarks.md) ·
+[Changelog](https://github.com/s-block/vaultlet/blob/main/CHANGELOG.md)
+
+> **Used in the real world:**
+> [browser-use-mcp](https://github.com/s-block/browser-use-mcp) uses Vaultlet for
+> encrypted multi-tenant state and browser-profile metadata in a real-world MCP
+> server.
+
 ## Quick start
 
 ```python
 import asyncio
-import os
 from datetime import timedelta
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import vaultlet
 
 
 async def main() -> None:
-    key = vaultlet.MasterKey.from_base64(os.environ["VAULTLET_MASTER_KEY"])
-    async with await vaultlet.Vaultlet.open(
-        vaultlet.FileBackend(Path("state.vaultlet")),
-        key=key,
-    ) as store:
-        user = store.tenant("user-123")
-        await user.set("access-token", b"secret", ttl=timedelta(hours=1))
-        await user.set_json("checkpoint", {"step": 4, "messages": []})
-
-        checkpoint = await user.get_json("checkpoint")
-        print(checkpoint)
+    with TemporaryDirectory(prefix="vaultlet-quickstart-") as directory:
+        key = vaultlet.MasterKey.generate()
+        async with await vaultlet.Vaultlet.open(
+            vaultlet.FileBackend(Path(directory) / "state.vaultlet"), key=key
+        ) as store:
+            user = store.tenant("user-123")
+            await user.set("access-token", b"secret", ttl=timedelta(hours=1))
+            print(await user.get("access-token"))
 
 
 asyncio.run(main())
 ```
 
-The master key is never stored in the Vaultlet backend. `export_bytes()` and
-`export_base64()` are deliberately explicit because the application owns key
-provisioning, backup, and access control. For a persistent store, generate and save
-the key once, then obtain it from protected configuration and restore it with
-`MasterKey.from_bytes(...)` or `MasterKey.from_base64(...)`. Losing the key makes the
-store unrecoverable.
+The quick start is intentionally disposable. The master key is never stored in the
+Vaultlet backend: for a persistent store, generate and save it once in protected
+configuration, then restore it with `MasterKey.from_bytes(...)` or
+`MasterKey.from_base64(...)`. Losing the key makes the store unrecoverable.
 
-See the focused examples for
-[credential expiry](examples/credentials_ttl.py),
-[multi-tenant isolation](examples/multi_tenant.py), and
-[atomic agent checkpoints](examples/agent_checkpoint.py).
+## Examples
+
+| Goal | Entry point |
+| --- | --- |
+| Basic encrypted local storage | [Quick start](#quick-start) |
+| Credential storage with TTL | [credentials_ttl.py](https://github.com/s-block/vaultlet/blob/main/examples/credentials_ttl.py) |
+| Tenant isolation | [multi_tenant.py](https://github.com/s-block/vaultlet/blob/main/examples/multi_tenant.py) |
+| Atomic JSON agent checkpoints | [agent_checkpoint.py](https://github.com/s-block/vaultlet/blob/main/examples/agent_checkpoint.py) |
+| Shared Redis storage | [redis_backend.py](https://github.com/s-block/vaultlet/blob/main/examples/redis_backend.py) |
+
+The Redis example reads its endpoint and persistent master key from
+`VAULTLET_REDIS_ENDPOINT` and `VAULTLET_MASTER_KEY`; optional namespace and ACL
+credentials use the `VAULTLET_REDIS_*` variables shown in the example.
 
 ## Backends
 
@@ -228,8 +239,10 @@ opens must use the replacement master key.
 Tenant handles prevent accidental cross-tenant access; they do not authenticate
 callers. Applications must map authenticated callers to trusted tenant IDs.
 Network filesystems are not supported for file backends. See
-[Security](docs/Security.md), [Architecture](docs/Architecture.md), and
-[Storage Format](docs/StorageFormat.md) for the complete operational contract.
+[Security](https://github.com/s-block/vaultlet/blob/main/docs/Security.md),
+[Architecture](https://github.com/s-block/vaultlet/blob/main/docs/Architecture.md),
+and [Storage Format](https://github.com/s-block/vaultlet/blob/main/docs/StorageFormat.md)
+for the complete operational contract.
 
 ## Benchmarks
 
@@ -237,17 +250,25 @@ Vaultlet includes reproducible Rust microbenchmarks and Python end-to-end worklo
 covering SQLite and redb, bytes and JSON, single and batch operations, TTL cleanup,
 tenant contention, and concurrent tasks. A labelled comparison runner also includes
 Redis, an encrypted `aiosqlite` baseline, and an explicitly non-equivalent DiskCache
-context. See [Benchmarks](docs/Benchmarks.md) for the workloads, commands, and
-reporting rules.
+context. See
+[Benchmarks](https://github.com/s-block/vaultlet/blob/main/docs/Benchmarks.md) for the
+workloads, commands, and reporting rules. Reproducible result artifacts exist for
+development comparisons, but Vaultlet does not publish headline numbers until a
+reportable backend and baseline run is available.
 
 ## Contributing
 
 Contributions are welcome across benchmarks, platform support, integrations,
-documentation, and security review. See [Contributing](CONTRIBUTING.md) for the local
-workflow and the [open issues](https://github.com/s-block/vaultlet/issues) for current
-roadmap work. [Development](docs/Development.md) documents the complete toolchain and
-validation commands.
+documentation, and security review. See
+[Contributing](https://github.com/s-block/vaultlet/blob/main/CONTRIBUTING.md) for the
+local workflow and the [open issues](https://github.com/s-block/vaultlet/issues) for
+current roadmap work.
+[Development](https://github.com/s-block/vaultlet/blob/main/docs/Development.md)
+documents the complete toolchain and validation commands. Suspected vulnerabilities
+belong in [private security reports](https://github.com/s-block/vaultlet/security/advisories/new),
+not public issues.
 
 ## License
 
-Vaultlet is available under the [MIT License](LICENSE).
+Vaultlet is available under the
+[MIT License](https://github.com/s-block/vaultlet/blob/main/LICENSE).

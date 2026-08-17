@@ -1,0 +1,57 @@
+name: Bug report
+description: Report reproducible unexpected Vaultlet behaviour
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve Vaultlet. Do not include credentials,
+        private endpoints, production data, or suspected vulnerabilities.
+        Report security issues privately through the repository security policy.
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the expected and observed behaviour.
+      placeholder: I expected ... but observed ...
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Provide the smallest complete example that reproduces the issue.
+      render: python
+    validations:
+      required: true
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Backend
+      options:
+        - SQLite
+        - redb
+        - Redis
+        - Packaging or installation
+        - Backend-independent
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include Vaultlet, Python, OS, and backend versions. For Redis, include topology and persistence configuration without secrets.
+      placeholder: |
+        Vaultlet:
+        Python:
+        OS and architecture:
+        Redis version/topology/persistence (if applicable):
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add sanitized tracebacks, logs, or other relevant details.

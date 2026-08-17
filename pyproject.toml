@@ -5,16 +5,19 @@ build-backend = "maturin"
 [project]
 name = "vaultlet"
 dynamic = ["version"]
-description = "Async encrypted multi-tenant key-value storage powered by Rust"
+description = "Fully async encrypted multi-tenant key-value storage for Python, powered by Rust"
 keywords = [
     "ai-agents",
     "asyncio",
+    "checkpoints",
+    "encrypted-storage",
     "encryption",
     "key-value",
     "mcp",
     "multi-tenant",
     "persistence",
     "pyo3",
+    "redb",
     "redis",
     "rust",
     "security",
@@ -26,12 +29,16 @@ license = { file = "LICENSE" }
 authors = [{ name = "Joshua Rowe" }]
 classifiers = [
     "Development Status :: 3 - Alpha",
+    "Framework :: AsyncIO",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Topic :: Database",
+    "Topic :: Security :: Cryptography",
+    "Typing :: Typed",
 ]
 dependencies = []
 
@@ -40,7 +47,9 @@ Benchmarks = "https://github.com/s-block/vaultlet/blob/main/docs/Benchmarks.md"
 Changelog = "https://github.com/s-block/vaultlet/blob/main/CHANGELOG.md"
 Contributing = "https://github.com/s-block/vaultlet/blob/main/CONTRIBUTING.md"
 Documentation = "https://github.com/s-block/vaultlet/tree/main/docs"
+Examples = "https://github.com/s-block/vaultlet/tree/main/examples"
 Issues = "https://github.com/s-block/vaultlet/issues"
+"Real-world use" = "https://github.com/s-block/browser-use-mcp"
 Security = "https://github.com/s-block/vaultlet/security/policy"
 Source = "https://github.com/s-block/vaultlet"
 
