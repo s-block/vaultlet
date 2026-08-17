@@ -1,23 +1,27 @@
-# Vaultlet
+# Vaultlet — encrypted state for multi-user Python applications
 
-Vaultlet is an async, encrypted, multi-tenant persistent key-value store for Python,
-powered by Rust. It is designed for credentials, sessions, agent state, checkpoints,
-cached data, and other sensitive application data.
+[![PyPI](https://img.shields.io/pypi/v/vaultlet)](https://pypi.org/project/vaultlet/)
+[![Python](https://img.shields.io/pypi/pyversions/vaultlet)](https://pypi.org/project/vaultlet/)
+[![CI](https://github.com/s-block/vaultlet/actions/workflows/ci.yml/badge.svg)](https://github.com/s-block/vaultlet/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-The Rust core performs key derivation, authenticated encryption, expiry enforcement,
-key enumeration, and durable backend transactions without handing plaintext to the
-storage engine. Tenant-scoped handles make isolation part of every data operation.
-Values can be opaque bytes or an explicit JSON-compatible subset; no pickle or Python
-object deserialization is used.
+Store per-user credentials, sessions, agent checkpoints, and cached state encrypted
+at rest — without deploying a dedicated secrets service. Vaultlet gives multi-user
+Python applications a small async persistence API, powered by Rust.
 
-## Requirements
+- **Tenant isolation by construction:** every data operation uses a tenant-scoped
+  handle, so identical keys remain isolated between users.
+- **Async bytes and typed JSON:** store opaque buffers or a safe JSON-compatible
+  subset without pickle or arbitrary object deserialization.
+- **Expiry and atomic batches:** apply TTLs, enumerate live keys, rotate the master
+  key, and commit bulk reads or writes as one transaction.
+- **Three durable backends:** use SQLite for shared local state, redb for exclusive
+  embedded storage, or Redis for multi-host deployments.
 
-- CPython 3.12, 3.13, or 3.14
-- A supported manylinux, musllinux, macOS, or Windows native wheel
-- Redis 7.2 or newer with AOF enabled when using `RedisBackend`
-
-Vaultlet uses the CPython 3.12 stable ABI. Standard GIL-enabled CPython builds are
-supported; free-threaded CPython builds require a separately compiled artifact.
+> **Used in the real world:**
+> [browser-use-mcp](https://github.com/s-block/browser-use-mcp) uses Vaultlet for
+> encrypted browser-profile metadata, tenant isolation, and shared SQLite
+> persistence.
 
 ## Installation
 
@@ -29,39 +33,25 @@ pip install vaultlet
 
 ```python
 import asyncio
+import os
 from datetime import timedelta
 from pathlib import Path
-from tempfile import TemporaryDirectory
 
 import vaultlet
 
 
 async def main() -> None:
-    # This walkthrough is intentionally disposable. Persistent stores must restore
-    # the same key from a secret manager on every open.
-    with TemporaryDirectory(prefix="vaultlet-quickstart-") as directory:
-        key = vaultlet.MasterKey.generate()
-        async with await vaultlet.Vaultlet.open(
-            vaultlet.FileBackend(Path(directory) / "state.vaultlet"),
-            key=key,
-        ) as store:
-            tenant = store.tenant("customer-123")
-            await tenant.set("token", b"secret", ttl=timedelta(hours=1))
-            await tenant.set_json("checkpoint", {"step": 4, "messages": []})
-            checkpoint = await tenant.get_json("checkpoint")
-            if checkpoint is None:
-                raise RuntimeError("checkpoint did not round-trip")
+    key = vaultlet.MasterKey.from_base64(os.environ["VAULTLET_MASTER_KEY"])
+    async with await vaultlet.Vaultlet.open(
+        vaultlet.FileBackend(Path("state.vaultlet")),
+        key=key,
+    ) as store:
+        user = store.tenant("user-123")
+        await user.set("access-token", b"secret", ttl=timedelta(hours=1))
+        await user.set_json("checkpoint", {"step": 4, "messages": []})
 
-            stored_keys: list[str] = []
-            cursor = None
-            while True:
-                listing = await tenant.keys(limit=100, cursor=cursor)
-                stored_keys.extend(listing.keys)
-                if listing.next_cursor is None:
-                    break
-                cursor = listing.next_cursor
-            if set(stored_keys) != {"checkpoint", "token"}:
-                raise RuntimeError("key listing was incomplete")
+        checkpoint = await user.get_json("checkpoint")
+        print(checkpoint)
 
 
 asyncio.run(main())
@@ -73,6 +63,28 @@ provisioning, backup, and access control. For a persistent store, generate and s
 the key once, then obtain it from protected configuration and restore it with
 `MasterKey.from_bytes(...)` or `MasterKey.from_base64(...)`. Losing the key makes the
 store unrecoverable.
+
+See the focused examples for
+[credential expiry](examples/credentials_ttl.py),
+[multi-tenant isolation](examples/multi_tenant.py), and
+[atomic agent checkpoints](examples/agent_checkpoint.py).
+
+## Backends
+
+| Backend | Best fit | Ownership and durability |
+| --- | --- | --- |
+| SQLite (default) | Local application state shared by processes | WAL mode with full synchronization |
+| redb | Embedded state owned by one process | Exclusive file ownership and immediate two-phase commits |
+| Redis | State shared by processes or hosts | Atomic scripts and acknowledged AOF persistence |
+
+## Requirements
+
+- CPython 3.12, 3.13, or 3.14
+- A supported manylinux, musllinux, macOS, or Windows native wheel
+- Redis 7.2 or newer with AOF enabled when using `RedisBackend`
+
+Vaultlet uses the CPython 3.12 stable ABI. Standard GIL-enabled CPython builds are
+supported; free-threaded CPython builds require a separately compiled artifact.
 
 `FileBackend` defaults to SQLite in WAL mode, which supports independent processes
 opening and coordinating through the same local store. Select redb explicitly for
@@ -188,6 +200,10 @@ by Python even though the whole transaction subsequently commits.
 
 ## Security and operation
 
+The Rust core performs key derivation, authenticated encryption, expiry enforcement,
+key enumeration, and durable backend transactions without handing plaintext to the
+storage engine.
+
 Vaultlet blinds tenant and key identifiers and encrypts each value with a distinct
 XChaCha20-Poly1305 nonce and a tenant-derived key. Authenticated metadata binds the
 store identity, record identity, encoding, expiry, and revision. The redb backend
@@ -215,11 +231,22 @@ Network filesystems are not supported for file backends. See
 [Security](docs/Security.md), [Architecture](docs/Architecture.md), and
 [Storage Format](docs/StorageFormat.md) for the complete operational contract.
 
-## Development and benchmarks
+## Benchmarks
 
-See [Development](docs/Development.md) for the toolchain and validation commands.
-[Benchmarks](docs/Benchmarks.md) documents reproducible workloads and how to report
-results without treating unencrypted stores as security-equivalent comparisons.
+Vaultlet includes reproducible Rust microbenchmarks and Python end-to-end workloads
+covering SQLite and redb, bytes and JSON, single and batch operations, TTL cleanup,
+tenant contention, and concurrent tasks. A labelled comparison runner also includes
+Redis, an encrypted `aiosqlite` baseline, and an explicitly non-equivalent DiskCache
+context. See [Benchmarks](docs/Benchmarks.md) for the workloads, commands, and
+reporting rules.
+
+## Contributing
+
+Contributions are welcome across benchmarks, platform support, integrations,
+documentation, and security review. See [Contributing](CONTRIBUTING.md) for the local
+workflow and the [open issues](https://github.com/s-block/vaultlet/issues) for current
+roadmap work. [Development](docs/Development.md) documents the complete toolchain and
+validation commands.
 
 ## License
 
