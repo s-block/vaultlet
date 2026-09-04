@@ -55,7 +55,7 @@ Source = "https://github.com/s-block/vaultlet"
 
 [dependency-groups]
 dev = [
-    "coverage>=7.15.4",
+    "coverage>=7.16.0",
     "maturin>=1.9,<2",
     "mypy>=1.18",
     "pre-commit>=4.3",
